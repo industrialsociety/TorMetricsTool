@@ -67,7 +67,7 @@ app.get('/', (req, res) => {
           function fetchData(countryCode) {
             document.getElementById('results').innerHTML = 'Loading...';
             
-            fetch(\`/api/relays/\${countryCode.toLowerCase()}\`)
+            fetch('/api/relays/' + countryCode.toLowerCase())
               .then(response => response.json())
               .then(data => {
                 if (data.error) {
@@ -129,7 +129,7 @@ app.get('/api/relays/:country', async (req, res) => {
       return;
     }
 
-    const response = await axios.get(\`https://onionoo.torproject.org/details?country=\${country}\`);
+    const response = await axios.get('https://onionoo.torproject.org/details?country=' + country);
     const relays = response.data.relays;
     
     const stats = relays.reduce((acc, relay) => {
