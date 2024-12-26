@@ -26,20 +26,20 @@ app.get('/', (req, res) => {
           fetch('/api/relays')
             .then(response => response.json())
             .then(data => {
-              document.getElementById('results').innerHTML = `
+              document.getElementById('results').innerHTML = \`
                 <div class="stat-box">
-                  <h3>Running relays: ${data.runningCount}</h3>
+                  <h3>Running relays: \${data.runningCount}</h3>
                 </div>
                 <div class="stat-box">
-                  <h3>Not running relays: ${data.notRunningCount}</h3>
+                  <h3>Not running relays: \${data.notRunningCount}</h3>
                 </div>
                 <div class="stat-box">
-                  <h3>Total relays: ${data.runningCount + data.notRunningCount}</h3>
+                  <h3>Total relays: \${data.runningCount + data.notRunningCount}</h3>
                 </div>
                 <div class="stat-box">
-                  <h3>Total bandwidth: ${data.totalBandwidth} MB/s</h3>
+                  <h3>Total bandwidth: \${data.totalBandwidth} MB/s</h3>
                 </div>
-              `;
+              \`;
             })
             .catch(error => {
               document.getElementById('results').innerHTML = 'Error loading data';
