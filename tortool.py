@@ -10,24 +10,29 @@ def get_tor_metrics(country_code):
         page.goto(url)
         
         page.wait_for_selector('#torstatus_results')
-        
         time.sleep(2)
         
-        as_cell = page.query_selector('td:has-text("distinct")')
-        if as_cell:
-            as_text = as_cell.inner_text()
-            as_count = as_text.split()[0].strip('(')
-        else:
-            as_count = "Not found"
-        
-        weight_cell = page.query_selector('#torstatus_results tbody tr td:nth-child(3)')
-        if weight_cell:
-            weight = weight_cell.inner_text()
-        else:
-            weight = "Not found"
+        row = page.query_selector('#torstatus_results tbody tr')
+        if row:
+            relays = int(row.query_selector('td:nth-child(8)').inner_text())
+            guards = int(row.query_selector('td:nth-child(9)').inner_text())
+            exits = int(row.query_selector('td:nth-child(10)').inner_text())
+            total_servers = relays + guards + exits
+            
+            bandwidth = row.query_selector('td:nth-child(4)').inner_text()
+            bandwidth_num = float(bandwidth.split()[0])  # Just get the number
+            
+            as_text = row.query_selector('td:nth-child(2)').inner_text()
+            as_count = int(as_text.split()[0].strip('('))
+            
+            weight = row.query_selector('td:nth-child(3)').inner_text()
+            weight_num = float(weight.strip('%')) / 100  # Convert percentage to decimal
+            
+            browser.close()
+            return f"{total_servers},{bandwidth_num},{as_count},{weight_num:.3f}"
         
         browser.close()
-        return as_count, weight
+        return "Data not found"
 
 def main():
     while True:
@@ -40,14 +45,10 @@ def main():
             continue
             
         try:
-            as_count, consensus_weight = get_tor_metrics(country_code)
-            print(f"\nResults for {country_code.upper()}:")
-            print(f"Distinct Autonomous Systems: {as_count}")
-            print(f"Consensus Weight: {consensus_weight}")
+            result = get_tor_metrics(country_code)
+            print(result)
         except Exception as e:
             print(f"An error occurred: {e}")
-        
-        print("\n" + "-"*50 + "\n")
 
 if __name__ == "__main__":
     main()
