@@ -67,6 +67,19 @@ app.get('/', (req, res) => {
             gap: 15px;
             margin: 20px 0;
           }
+          .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #666;
+          }
+          .error {
+            background: #fee;
+            padding: 15px;
+            border-radius: 5px;
+            color: #c00;
+            margin: 10px 0;
+          }
         </style>
       </head>
       <body>
@@ -84,7 +97,7 @@ app.get('/', (req, res) => {
           <p>Press Enter to search</p>
         </div>
 
-        <div id="results">Loading...</div>
+        <div id="results" class="loading">Loading...</div>
 
         <script>
           const countryInput = document.getElementById('countryCode');
@@ -93,15 +106,22 @@ app.get('/', (req, res) => {
             return new Intl.NumberFormat().format(num);
           }
           
+          function formatPercent(num) {
+            return new Intl.NumberFormat('en-US', { 
+              style: 'percent', 
+              maximumFractionDigits: 2 
+            }).format(num);
+          }
+          
           function fetchData(countryCode) {
-            document.getElementById('results').innerHTML = 'Loading...';
+            document.getElementById('results').innerHTML = '<div class="loading">Loading...</div>';
             
             fetch('/api/relays/' + countryCode.toLowerCase())
               .then(response => response.json())
               .then(data => {
                 if (data.error) {
                   document.getElementById('results').innerHTML = \`
-                    <div class="stat-box" style="background: #fee;">
+                    <div class="error">
                       <h3>Error: \${data.error}</h3>
                     </div>
                   \`;
@@ -116,15 +136,15 @@ app.get('/', (req, res) => {
                     </div>
                     <div class="stat-box">
                       <h3>Total bandwidth</h3>
-                      <div>\${formatNumber(data.totalBandwidth)} MB/s</div>
+                      <div>\${formatNumber(data.totalBandwidth.toFixed(2))} MB/s</div>
                     </div>
                     <div class="stat-box">
                       <h3>Unique AS Systems</h3>
                       <div>\${formatNumber(data.uniqueASCount)}</div>
                     </div>
                     <div class="stat-box">
-                      <h3>Total Weight</h3>
-                      <div>\${formatNumber(data.totalWeight)}</div>
+                      <h3>Network Weight</h3>
+                      <div>\${formatPercent(data.consensusWeightFraction)}</div>
                     </div>
                   </div>
 
@@ -136,6 +156,7 @@ app.get('/', (req, res) => {
                         <th>AS Name</th>
                         <th>Relay Count</th>
                         <th>Total Bandwidth (MB/s)</th>
+                        <th>% of Country</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -145,6 +166,7 @@ app.get('/', (req, res) => {
                           <td>\${as.name}</td>
                           <td>\${formatNumber(as.relayCount)}</td>
                           <td>\${formatNumber(as.bandwidth.toFixed(2))}</td>
+                          <td>\${formatPercent(as.bandwidthFraction)}</td>
                         </tr>
                       \`).join('')}
                     </tbody>
@@ -153,8 +175,9 @@ app.get('/', (req, res) => {
               })
               .catch(error => {
                 document.getElementById('results').innerHTML = \`
-                  <div class="stat-box" style="background: #fee;">
+                  <div class="error">
                     <h3>Error loading data</h3>
+                    <p>\${error.message}</p>
                   </div>
                 \`;
                 console.error('Error:', error);
@@ -185,6 +208,11 @@ app.get('/api/relays/:country', async (req, res) => {
       res.status(400).json({ error: 'Invalid country code. Please use two letters (e.g., de, us, fr)' });
       return;
     }
+
+    const allRelaysResponse = await axios.get('https://onionoo.torproject.org/details');
+    const allRelays = allRelaysResponse.data.relays;
+    const totalNetworkWeight = allRelays.reduce((sum, relay) => 
+      sum + (relay.consensus_weight || 0), 0);
 
     const response = await axios.get('https://onionoo.torproject.org/details?country=' + country);
     const relays = response.data.relays;
@@ -231,16 +259,22 @@ app.get('/api/relays/:country', async (req, res) => {
       }
     });
 
-    stats.totalBandwidth = (stats.totalBandwidth / (1024 * 1024)).toFixed(2);
+    stats.totalBandwidth = (stats.totalBandwidth / (1024 * 1024));
+
+    const consensusWeightFraction = stats.totalWeight / totalNetworkWeight;
 
     const asDistribution = Array.from(stats.asSystems.values())
+      .map(as => ({
+        ...as,
+        bandwidthFraction: as.bandwidth / stats.totalBandwidth
+      }))
       .sort((a, b) => b.bandwidth - a.bandwidth);
 
     const response_data = {
       runningCount: stats.runningCount,
       notRunningCount: stats.notRunningCount,
-      totalBandwidth: parseFloat(stats.totalBandwidth),
-      totalWeight: stats.totalWeight,
+      totalBandwidth: stats.totalBandwidth,
+      consensusWeightFraction,
       uniqueASCount: stats.asSystems.size,
       asDistribution
     };
